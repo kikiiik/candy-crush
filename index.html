@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍬 Candy Smash!</title>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg1: #1a0533;
+  --bg2: #2d0a5e;
+  --accent: #ff6bff;
+  --gold: #ffd700;
+  --panel: rgba(255,255,255,0.07);
+  --panel-border: rgba(255,255,255,0.15);
+  --cell: 64px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: radial-gradient(ellipse at 20% 20%, #3d0a7a 0%, #1a0533 40%, #0a0a2e 100%);
+  min-height: 100vh;
+  font-family: 'Nunito', sans-serif;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+}
+
+/* Floating candy bg */
+.bg-candy { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
+.bg-candy span {
+  position:absolute; font-size:28px; opacity:0.07;
+  animation: floatUp linear infinite;
+}
+@keyframes floatUp {
+  from { transform: translateY(110vh) rotate(0deg); }
+  to   { transform: translateY(-10vh) rotate(360deg); }
+}
+
+/* ─── TOP BAR ─── */
+#topbar {
+  position:relative; z-index:10;
+  width:100%; max-width:520px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 20px 8px;
+}
+.level-badge {
+  background: linear-gradient(135deg, #ff6bff, #a855f7);
+  color:white;
+  padding: 6px 18px;
+  border-radius: 50px;
+  font-family:'Lilita One',cursive;
+  font-size:18px;
+  box-shadow: 0 4px 15px rgba(168,85,247,0.5);
+  border: 2px solid rgba(255,255,255,0.3);
+}
+.score-wrap {
+  text-align:center;
+}
+.score-label { color:rgba(255,255,255,0.5); font-size:11px; letter-spacing:2px; text-transform:uppercase; }
+.score-val {
+  font-family:'Lilita One',cursive;
+  font-size:28px;
+  color:#ffd700;
+  text-shadow: 0 0 20px rgba(255,215,0,0.7);
+  transition: transform 0.1s;
+}
+.score-val.pop { animation: scorePop 0.3s ease; }
+@keyframes scorePop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
+.moves-wrap { text-align:center; }
+.moves-label { color:rgba(255,255,255,0.5); font-size:11px; letter-spacing:2px; text-transform:uppercase; }
+.moves-val {
+  font-family:'Lilita One',cursive; font-size:28px; color:white;
+  transition: color 0.3s;
+}
+.moves-val.low { color:#ff4444; animation: pulse 0.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* ─── OBJECTIVE BAR ─── */
+#obj-bar {
+  position:relative; z-index:10;
+  width:100%; max-width:520px;
+  padding: 0 20px 10px;
+  display:flex; gap:10px;
+}
+.obj-item {
+  flex:1; background:var(--panel);
+  border:1px solid var(--panel-border);
+  border-radius:14px; padding:8px 12px;
+  display:flex; align-items:center; gap:8px;
+}
+.obj-icon { font-size:22px; }
+.obj-info { flex:1; }
+.obj-name { color:rgba(255,255,255,0.6); font-size:10px; text-transform:uppercase; letter-spacing:1px; }
+.obj-prog { color:white; font-weight:800; font-size:14px; }
+.obj-bar-inner { height:5px; background:rgba(255,255,255,0.1); border-radius:3px; margin-top:3px; overflow:hidden; }
+.obj-fill { height:100%; background:linear-gradient(90deg,#ff6bff,#ffd700); border-radius:3px; transition:width 0.4s ease; }
+
+/* ─── SCORE STARS ─── */
+#stars-bar {
+  position:relative; z-index:10;
+  width:100%; max-width:520px;
+  padding: 0 20px 6px;
+  display:flex; justify-content:center; gap:6px;
+}
+.star { font-size:26px; filter:grayscale(1) brightness(0.4); transition:all 0.3s; }
+.star.lit { filter:none; animation:starPop 0.4s ease; }
+@keyframes starPop { 0%{transform:scale(0)} 60%{transform:scale(1.4)} 100%{transform:scale(1)} }
+
+/* ─── SCORE TARGETS ─── */
+#target-track {
+  position:relative; z-index:10;
+  width:100%; max-width:520px;
+  padding: 0 20px 10px;
+  display:flex; justify-content:space-between;
+}
+.target-mark {
+  display:flex; flex-direction:column; align-items:center;
+  color:rgba(255,255,255,0.5); font-size:11px;
+}
+.target-mark span { font-size:18px; }
+
+/* ─── GRID CONTAINER ─── */
+#grid-wrap {
+  position:relative; z-index:10;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+}
+#grid {
+  display:grid;
+  grid-template-columns: repeat(8, var(--cell));
+  grid-template-rows: repeat(8, var(--cell));
+  gap: 3px;
+  position:relative;
+}
+.cell {
+  width: var(--cell); height: var(--cell);
+  position:relative; display:flex; align-items:center; justify-content:center;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  cursor:pointer; transition: background 0.2s;
+}
+.cell:hover { background: rgba(255,255,255,0.1); }
+.cell.selected { background: rgba(255,215,0,0.2); box-shadow: inset 0 0 0 2px rgba(255,215,0,0.8); }
+
+/* ─── CANDY ─── */
+.candy {
+  width:52px; height:52px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:30px;
+  position:relative;
+  transition: transform 0.12s;
+  cursor:pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.2), inset 0 3px 6px rgba(255,255,255,0.3);
+  animation: candyIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes candyIn {
+  from { transform:scale(0) rotate(-20deg); opacity:0; }
+  to   { transform:scale(1) rotate(0deg);  opacity:1; }
+}
+.candy:hover { transform:scale(1.1); }
+.candy.selected { transform:scale(1.15); animation:wiggle 0.3s ease; }
+@keyframes wiggle { 0%,100%{transform:scale(1.15) rotate(0)} 25%{transform:scale(1.15) rotate(-8deg)} 75%{transform:scale(1.15) rotate(8deg)} }
+.candy.removing { animation:pop 0.3s ease forwards; }
+@keyframes pop { 0%{transform:scale(1);opacity:1} 40%{transform:scale(1.4);opacity:0.7} 100%{transform:scale(0);opacity:0} }
+.candy.falling { animation:fall 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes fall { from{transform:translateY(-30px);opacity:0} to{transform:translateY(0);opacity:1} }
+.candy.swap-right { animation:swapR 0.2s ease; }
+.candy.swap-left  { animation:swapL 0.2s ease; }
+.candy.swap-down  { animation:swapD 0.2s ease; }
+.candy.swap-up    { animation:swapU 0.2s ease; }
+@keyframes swapR { 0%{transform:translateX(0)} 50%{transform:translateX(67px)} 100%{transform:translateX(0)} }
+@keyframes swapL { 0%{transform:translateX(0)} 50%{transform:translateX(-67px)} 100%{transform:translateX(0)} }
+@keyframes swapD { 0%{transform:translateY(0)} 50%{transform:translateY(67px)} 100%{transform:translateY(0)} }
+@keyframes swapU { 0%{transform:translateY(0)} 50%{transform:translateY(-67px)} 100%{transform:translateY(0)} }
+
+/* Candy special effects */
+.candy.striped-h::after, .candy.striped-v::after {
+  content:'';
+  position:absolute; border-radius:3px;
+  background:rgba(255,255,255,0.6);
+}
+.candy.striped-h::after { width:46px; height:6px; }
+.candy.striped-v::after { width:6px; height:46px; }
+.candy.wrapped { box-shadow: 0 0 0 3px rgba(255,255,255,0.8), 0 0 0 6px rgba(255,215,0,0.5), 0 4px 12px rgba(0,0,0,0.3); }
+.candy.wrapped::after {
+  content:'✦';
+  position:absolute;
+  font-size:14px;
+  color:rgba(255,255,255,0.9);
+  text-shadow:0 0 8px rgba(255,255,255,1);
+}
+.candy.colorBomb {
+  background: conic-gradient(#ff4444,#ff9500,#ffd700,#4cff4c,#00cfff,#a855f7,#ff4444) !important;
+  animation:spin 2s linear infinite, candyIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 0 20px rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.3) !important;
+}
+@keyframes spin { to{filter:hue-rotate(360deg)} }
+
+/* ─── CANDY COLORS ─── */
+.c0 { background:radial-gradient(circle at 35% 30%, #ff9999, #e53935); }
+.c1 { background:radial-gradient(circle at 35% 30%, #ffea80, #f9a825); }
+.c2 { background:radial-gradient(circle at 35% 30%, #80f0ff, #0288d1); }
+.c3 { background:radial-gradient(circle at 35% 30%, #c3e8a0, #388e3c); }
+.c4 { background:radial-gradient(circle at 35% 30%, #e8a0f0, #8e24aa); }
+.c5 { background:radial-gradient(circle at 35% 30%, #ffc480, #e65100); }
+
+/* ─── JELLY OVERLAY ─── */
+.jelly-1 {
+  position:absolute; inset:2px; border-radius:9px;
+  background:rgba(100,200,255,0.25);
+  border:2px solid rgba(100,200,255,0.5);
+  pointer-events:none;
+}
+.jelly-2 {
+  position:absolute; inset:2px; border-radius:9px;
+  background:rgba(100,200,255,0.45);
+  border:3px solid rgba(100,200,255,0.8);
+  pointer-events:none;
+  box-shadow:inset 0 0 8px rgba(100,200,255,0.5);
+}
+.chocolate {
+  position:absolute; inset:2px; border-radius:9px;
+  background:linear-gradient(135deg,#6d4c41,#3e2723);
+  border:2px solid #4e342e;
+  pointer-events:none;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);
+}
+
+/* ─── PARTICLES ─── */
+.particle {
+  position:fixed;
+  pointer-events:none;
+  font-size:20px;
+  animation:particleFly 0.8s ease forwards;
+  z-index:100;
+}
+@keyframes particleFly {
+  0%   { transform:translate(0,0) scale(1); opacity:1; }
+  100% { transform:translate(var(--dx),var(--dy)) scale(0); opacity:0; }
+}
+.score-float {
+  position:fixed; pointer-events:none;
+  font-family:'Lilita One',cursive;
+  font-size:22px; color:#ffd700;
+  text-shadow:0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(255,215,0,0.8);
+  animation:floatScore 0.9s ease forwards;
+  z-index:101;
+}
+@keyframes floatScore {
+  0%  { transform:translateY(0) scale(1); opacity:1; }
+  100%{ transform:translateY(-70px) scale(0.6); opacity:0; }
+}
+.combo-text {
+  position:fixed; pointer-events:none;
+  font-family:'Lilita One',cursive;
+  font-size:42px;
+  animation:comboAnim 1s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  z-index:102;
+  left:50%; top:40%;
+  transform:translateX(-50%);
+}
+@keyframes comboAnim {
+  0%  { transform:translateX(-50%) scale(0) rotate(-10deg); opacity:0; }
+  30% { transform:translateX(-50%) scale(1.2) rotate(3deg); opacity:1; }
+  70% { transform:translateX(-50%) scale(1) rotate(0); opacity:1; }
+  100%{ transform:translateX(-50%) scale(0.8) translateY(-50px); opacity:0; }
+}
+
+/* ─── BOTTOM BAR ─── */
+#bottombar {
+  position:relative; z-index:10;
+  width:100%; max-width:520px;
+  padding: 12px 20px 20px;
+  display:flex; gap:10px;
+}
+.btn {
+  flex:1; padding:12px;
+  border-radius:50px; border:none; cursor:pointer;
+  font-family:'Lilita One',cursive; font-size:16px;
+  transition:all 0.15s; letter-spacing:0.5px;
+}
+.btn-primary {
+  background:linear-gradient(135deg,#ff6bff,#a855f7);
+  color:white;
+  box-shadow:0 6px 20px rgba(168,85,247,0.4), 0 2px 0 rgba(255,255,255,0.2) inset;
+}
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(168,85,247,0.5); }
+.btn-primary:active { transform:translateY(1px); }
+.btn-secondary {
+  background:rgba(255,255,255,0.1); color:white;
+  border:1px solid rgba(255,255,255,0.2);
+}
+.btn-secondary:hover { background:rgba(255,255,255,0.15); }
+
+/* ─── OVERLAY ─── */
+#overlay {
+  position:fixed; inset:0; z-index:200;
+  background:rgba(0,0,0,0.85);
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(12px);
+}
+.panel {
+  background:linear-gradient(135deg, rgba(61,10,122,0.95), rgba(26,5,51,0.98));
+  border:2px solid rgba(255,107,255,0.4);
+  border-radius:28px;
+  padding:40px 44px;
+  text-align:center;
+  max-width:400px; width:90%;
+  box-shadow:0 30px 80px rgba(0,0,0,0.7), 0 0 80px rgba(168,85,247,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.panel h1 { font-family:'Lilita One',cursive; font-size:38px; color:white; text-shadow:0 0 30px rgba(255,107,255,0.8); margin-bottom:8px; }
+.panel p  { color:rgba(255,255,255,0.7); font-size:14px; line-height:1.6; margin-bottom:20px; }
+.panel .big-score { font-family:'Lilita One',cursive; font-size:54px; color:#ffd700; text-shadow:0 0 30px rgba(255,215,0,0.7); }
+.panel .stars-big { font-size:44px; margin:12px 0; letter-spacing:8px; }
+.hint-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  margin-bottom:20px; text-align:left;
+}
+.hint-item {
+  background:rgba(255,255,255,0.07); border-radius:12px;
+  padding:8px 12px; display:flex; align-items:center; gap:8px;
+  color:white; font-size:13px;
+}
+
+/* ─── HINT ARROWS ─── */
+.hint-arrow {
+  position:absolute; z-index:50;
+  pointer-events:none;
+  animation:hintBounce 0.7s ease infinite alternate;
+  font-size:22px;
+}
+@keyframes hintBounce { from{transform:scale(0.8)} to{transform:scale(1.2)} }
+
+/* Responsive */
+@media (max-width:580px) {
+  :root { --cell:42px; }
+  .candy { width:34px; height:34px; font-size:20px; }
+  .candy.striped-h::after { width:30px; height:4px; }
+  .candy.striped-v::after { width:4px; height:30px; }
+}
+</style>
+</head>
+<body>
+
+<div class="bg-candy" id="bgCandy"></div>
+
+<div id="topbar">
+  <div class="level-badge" id="levelBadge">Niv. 1</div>
+  <div class="score-wrap">
+    <div class="score-label">Score</div>
+    <div class="score-val" id="scoreVal">0</div>
+  </div>
+  <div class="moves-wrap">
+    <div class="moves-label">Coups</div>
+    <div class="moves-val" id="movesVal">30</div>
+  </div>
+</div>
+
+<div id="stars-bar">
+  <div class="star" id="star1">⭐</div>
+  <div class="star" id="star2">⭐</div>
+  <div class="star" id="star3">⭐</div>
+</div>
+
+<div id="obj-bar"></div>
+
+<div id="grid-wrap">
+  <div id="grid"></div>
+</div>
+
+<div id="bottombar">
+  <button class="btn btn-secondary" onclick="G.restart()">🔄 Restart</button>
+  <button class="btn btn-primary" onclick="G.nextLevel()">➡️ Niveau suivant</button>
+</div>
+
+<div id="overlay">
+  <div class="panel" id="mainPanel">
+    <h1>🍬 Candy Smash!</h1>
+    <p>Échangez des bonbons adjacents pour créer des combinaisons de <b>3 ou plus</b> ! Faites des grandes combos pour créer des bonbons spéciaux !</p>
+    <div class="hint-grid">
+      <div class="hint-item">🍭 <span><b>3 bonbons</b> = Match normal</span></div>
+      <div class="hint-item">⚡ <span><b>4 en ligne</b> = Rayé (ligne)</span></div>
+      <div class="hint-item">💥 <span><b>5 en L/T</b> = Enveloppé</span></div>
+      <div class="hint-item">🌈 <span><b>5 en ligne</b> = Arc-en-ciel</span></div>
+    </div>
+    <button class="btn btn-primary" onclick="G.start()">🎮 Jouer !</button>
+  </div>
+</div>
+
+<script>
+// ─── CONSTANTS ───────────────────────────────────────────────
+const COLS = 8, ROWS = 8;
+const CANDY_EMOJIS = ['🍬','🍭','🍫','🍰','🧁','🍩'];
+const CANDY_COLORS = ['c0','c1','c2','c3','c4','c5'];
+const CANDY_NAMES  = ['Rouge','Jaune','Bleu','Vert','Violet','Orange'];
+
+const LEVELS = [
+  { moves:30, targets:[{type:'score',val:2000}], jelly:0, choc:0, stars:[500,1200,2000] },
+  { moves:25, targets:[{type:'score',val:3000},{type:'jelly',val:10}], jelly:10, choc:0, stars:[1000,2000,3000] },
+  { moves:22, targets:[{type:'score',val:4000},{type:'jelly',val:20}], jelly:20, choc:3, stars:[1500,3000,4000] },
+  { moves:20, targets:[{type:'score',val:6000},{type:'jelly',val:25}], jelly:25, choc:5, stars:[2000,4000,6000] },
+  { moves:18, targets:[{type:'score',val:8000},{type:'jelly',val:30}], jelly:30, choc:8, stars:[3000,6000,8000] },
+];
+
+// ─── UTILS ───────────────────────────────────────────────────
+const rnd = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const delay = ms => new Promise(r=>setTimeout(r,ms));
+const idx = (r,c) => r*COLS+c;
+
+// ─── GAME STATE ──────────────────────────────────────────────
+const G = {
+  board:[],         // { color, special:'none'|'striped-h'|'striped-v'|'wrapped'|'colorBomb' }
+  jelly:[],         // 0=none,1=single,2=double
+  choc:[],          // bool
+  selected:null,    // {r,c}
+  score:0,
+  moves:0,
+  level:0,
+  busy:false,
+  combo:0,
+  levelCfg:null,
+  jellyCleared:0,
+  
+  // Init background candies
+  initBg() {
+    const bg = document.getElementById('bgCandy');
+    const emojis = ['🍬','🍭','🍫','🍰','🧁','🍩','🌈','⭐','✨'];
+    for(let i=0;i<30;i++){
+      const s=document.createElement('span');
+      s.textContent=emojis[rnd(0,emojis.length-1)];
+      s.style.left=rnd(0,100)+'%';
+      s.style.animationDuration=rnd(8,20)+'s';
+      s.style.animationDelay=rnd(0,15)+'s';
+      bg.appendChild(s);
+    }
+  },
+
+  start() {
+    document.getElementById('overlay').style.display='none';
+    this.level=0;
+    this.score=0;
+    this.loadLevel();
+  },
+
+  loadLevel() {
+    this.levelCfg = LEVELS[Math.min(this.level,LEVELS.length-1)];
+    this.moves = this.levelCfg.moves;
+    this.combo = 0;
+    this.jellyCleared = 0;
+    this.selected = null;
+    this.busy = false;
+    document.getElementById('levelBadge').textContent = 'Niv. '+(this.level+1);
+    this.updateUI();
+    this.buildBoard();
+    this.renderAll();
+    this.updateObjectives();
+  },
+
+  buildBoard() {
+    this.board = [];
+    this.jelly = new Array(ROWS*COLS).fill(0);
+    this.choc  = new Array(ROWS*COLS).fill(false);
+
+    // Place jelly
+    const jellyCount = this.levelCfg.jelly;
+    const jellySpots = [];
+    while(jellySpots.length < jellyCount) {
+      const i = rnd(0, ROWS*COLS-1);
+      if(!jellySpots.includes(i)) jellySpots.push(i);
+    }
+    jellySpots.forEach(i => { this.jelly[i] = rnd(1,2); });
+
+    // Place chocolate
+    const chocCount = this.levelCfg.choc;
+    let placed=0;
+    while(placed<chocCount) {
+      const i=rnd(0,ROWS*COLS-1);
+      if(!this.choc[i] && this.jelly[i]===0) { this.choc[i]=true; placed++; }
+    }
+
+    // Fill board avoiding immediate matches
+    for(let r=0;r<ROWS;r++) {
+      for(let c=0;c<COLS;c++) {
+        let color;
+        do {
+          color=rnd(0,5);
+        } while(
+          (c>=2 && this.board[idx(r,c-1)]?.color===color && this.board[idx(r,c-2)]?.color===color) ||
+          (r>=2 && this.board[idx(r-1,c)]?.color===color && this.board[idx(r-2,c)]?.color===color)
+        );
+        this.board[idx(r,c)] = { color, special:'none' };
+      }
+    }
+  },
+
+  // ─── RENDER ──────────────────────────────────────────────
+  renderAll() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML='';
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) {
+      const cell = document.createElement('div');
+      cell.className='cell';
+      cell.dataset.r=r; cell.dataset.c=c;
+      cell.addEventListener('click', ()=>this.onCellClick(r,c));
+
+      // Jelly overlay
+      if(this.jelly[idx(r,c)]>0 && !this.choc[idx(r,c)]) {
+        const j=document.createElement('div');
+        j.className='jelly-'+(this.jelly[idx(r,c)]);
+        cell.appendChild(j);
+      }
+
+      // Chocolate
+      if(this.choc[idx(r,c)]) {
+        const ch=document.createElement('div');
+        ch.className='chocolate';
+        ch.textContent='🍫';
+        cell.appendChild(ch);
+      } else {
+        const candy = this.makeCandy(r,c);
+        if(candy) cell.appendChild(candy);
+      }
+      grid.appendChild(cell);
+    }
+  },
+
+  makeCandy(r,c) {
+    const b = this.board[idx(r,c)];
+    if(!b) return null;
+    const el=document.createElement('div');
+    el.className='candy '+CANDY_COLORS[b.color];
+    if(b.special !== 'none') el.classList.add(b.special);
+    if(b.special==='colorBomb') { el.textContent='🌈'; el.style.fontSize='26px'; }
+    else el.textContent=CANDY_EMOJIS[b.color];
+    el.dataset.r=r; el.dataset.c=c;
+    return el;
+  },
+
+  getCell(r,c) {
+    return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+  },
+  getCandy(r,c) {
+    const cell=this.getCell(r,c);
+    return cell?.querySelector('.candy');
+  },
+
+  // ─── INPUT ───────────────────────────────────────────────
+  onCellClick(r,c) {
+    if(this.busy || this.moves<=0) return;
+    if(this.choc[idx(r,c)]) return; // can't select chocolate
+
+    if(!this.selected) {
+      this.selected={r,c};
+      this.getCell(r,c)?.classList.add('selected');
+      this.getCandy(r,c)?.classList.add('selected');
+    } else {
+      const {r:sr, c:sc} = this.selected;
+      this.getCell(sr,sc)?.classList.remove('selected');
+      this.getCandy(sr,sc)?.classList.remove('selected');
+      if(sr===r && sc===c) { this.selected=null; return; }
+
+      // Adjacent?
+      if(Math.abs(sr-r)+Math.abs(sc-c)===1) {
+        this.selected=null;
+        this.trySwap(sr,sc,r,c);
+      } else {
+        this.selected={r,c};
+        this.getCell(r,c)?.classList.add('selected');
+        this.getCandy(r,c)?.classList.add('selected');
+      }
+    }
+  },
+
+  async trySwap(r1,c1,r2,c2) {
+    this.busy=true;
+    // Animate swap
+    this.animSwap(r1,c1,r2,c2);
+    await delay(200);
+
+    this.swap(r1,c1,r2,c2);
+    const matches = this.findMatches();
+
+    if(matches.length===0) {
+      // Swap back
+      this.swap(r1,c1,r2,c2);
+      this.animSwapBack(r1,c1,r2,c2);
+      await delay(200);
+      this.busy=false;
+      return;
+    }
+
+    this.moves--;
+    this.combo=0;
+    this.updateUI();
+
+    await this.processMatches(matches, r1,c1,r2,c2);
+    this.busy=false;
+    this.checkEndLevel();
+  },
+
+  swap(r1,c1,r2,c2) {
+    const tmp = this.board[idx(r1,c1)];
+    this.board[idx(r1,c1)] = this.board[idx(r2,c2)];
+    this.board[idx(r2,c2)] = tmp;
+  },
+
+  animSwap(r1,c1,r2,c2) {
+    const c1El=this.getCandy(r1,c1), c2El=this.getCandy(r2,c2);
+    if(!c1El||!c2El) return;
+    if(c1===c2-1) { c1El.classList.add('swap-right'); c2El.classList.add('swap-left'); }
+    else if(c1===c2+1) { c1El.classList.add('swap-left'); c2El.classList.add('swap-right'); }
+    else if(r1===r2-1) { c1El.classList.add('swap-down'); c2El.classList.add('swap-up'); }
+    else { c1El.classList.add('swap-up'); c2El.classList.add('swap-down'); }
+  },
+  animSwapBack(r1,c1,r2,c2) { this.animSwap(r2,c2,r1,c1); },
+
+  // ─── MATCH FINDING ───────────────────────────────────────
+  findMatches() {
+    const matched = new Set();
+    const color = (r,c) => this.board[idx(r,c)]?.color;
+
+    // Horizontal
+    for(let r=0;r<ROWS;r++) {
+      for(let c=0;c<COLS-2;c++) {
+        if(this.choc[idx(r,c)]||this.choc[idx(r,c+1)]||this.choc[idx(r,c+2)]) continue;
+        const col=color(r,c);
+        if(col===undefined) continue;
+        if(this.board[idx(r,c)].special==='colorBomb') continue;
+        if(col===color(r,c+1)&&col===color(r,c+2)) {
+          let len=3;
+          while(c+len<COLS && color(r,c+len)===col && !this.choc[idx(r,c+len)]) len++;
+          for(let i=0;i<len;i++) matched.add(`${r},${c+i}`);
+        }
+      }
+    }
+    // Vertical
+    for(let c=0;c<COLS;c++) {
+      for(let r=0;r<ROWS-2;r++) {
+        if(this.choc[idx(r,c)]||this.choc[idx(r+1,c)]||this.choc[idx(r+2,c)]) continue;
+        const col=color(r,c);
+        if(col===undefined) continue;
+        if(this.board[idx(r,c)].special==='colorBomb') continue;
+        if(col===color(r+1,c)&&col===color(r+2,c)) {
+          let len=3;
+          while(r+len<ROWS && color(r+len,c)===col && !this.choc[idx(r+len,c)]) len++;
+          for(let i=0;i<len;i++) matched.add(`${r+i},${c}`);
+        }
+      }
+    }
+    if(matched.size===0) return [];
+
+    // Group contiguous matches
+    return this.groupMatches(matched);
+  },
+
+  groupMatches(matchSet) {
+    // Returns array of groups {cells:[{r,c}], special}
+    const visited=new Set();
+    const groups=[];
+    for(const key of matchSet) {
+      if(visited.has(key)) continue;
+      const [sr,sc]=key.split(',').map(Number);
+      const group={cells:[], hLen:0, vLen:0};
+      // BFS
+      const q=[key];
+      while(q.length) {
+        const k=q.shift();
+        if(visited.has(k)) continue;
+        visited.add(k);
+        const [r,c]=k.split(',').map(Number);
+        group.cells.push({r,c});
+        for(const n of [`${r},${c+1}`,`${r},${c-1}`,`${r+1},${c}`,`${r-1},${c}`]) {
+          if(matchSet.has(n)&&!visited.has(n)) q.push(n);
+        }
+      }
+      // Determine special
+      const n=group.cells.length;
+      // Check shape
+      const rows=[...new Set(group.cells.map(c=>c.r))];
+      const cols=[...new Set(group.cells.map(c=>c.c))];
+      if(n>=5 && rows.length===1) group.special='colorBomb';
+      else if(n>=5 && cols.length===1) group.special='colorBomb';
+      else if(n>=4 && rows.length>1 && cols.length>1) group.special='wrapped';
+      else if(n===4 && rows.length===1) group.special='striped-h';
+      else if(n===4 && cols.length===1) group.special='striped-v';
+      else if(n>=4) group.special='wrapped';
+      else group.special='none';
+
+      groups.push(group);
+    }
+    return groups;
+  },
+
+  // ─── PROCESS MATCHES ─────────────────────────────────────
+  async processMatches(groups, swapR1,swapC1,swapR2,swapC2) {
+    this.combo++;
+    if(this.combo>1) this.showCombo(this.combo);
+
+    // Collect all cells to remove
+    const toRemove=new Set();
+    const specialCreations=[];
+
+    for(const g of groups) {
+      g.cells.forEach(({r,c})=>toRemove.add(`${r},${c}`));
+
+      // Where to place special? Center of group, prefer swap dest
+      if(g.special!=='none') {
+        let placeR=g.cells[Math.floor(g.cells.length/2)].r;
+        let placeC=g.cells[Math.floor(g.cells.length/2)].c;
+        // Prefer the swapped-to cell if in group
+        for(const {r,c} of g.cells) {
+          if((r===swapR2&&c===swapC2)||(r===swapR1&&c===swapC1)) { placeR=r; placeC=c; break; }
+        }
+        specialCreations.push({r:placeR,c:placeC,special:g.special,color:this.board[idx(placeR,placeC)].color});
+      }
+    }
+
+    // Handle special candy activations (if swapped special)
+    const extras = await this.activateSpecials(toRemove);
+    extras.forEach(k=>toRemove.add(k));
+
+    // Animate removal
+    await this.animateRemove([...toRemove]);
+
+    // Score
+    let pts = toRemove.size * 60 * this.combo;
+    this.addScore(pts, toRemove);
+
+    // Update jelly & chocolate
+    toRemove.forEach(k => {
+      const [r,c]=k.split(',').map(Number);
+      const i=idx(r,c);
+      if(this.jelly[i]>0) { this.jelly[i]--; if(this.jelly[i]===0) this.jellyCleared++; }
+      if(this.choc[i]) { this.choc[i]=false; }
+    });
+
+    // Remove from board
+    toRemove.forEach(k => {
+      const [r,c]=k.split(',').map(Number);
+      this.board[idx(r,c)]=null;
+    });
+
+    // Place special creations
+    specialCreations.forEach(({r,c,special,color})=>{
+      if(!this.board[idx(r,c)]) this.board[idx(r,c)]={ color: special==='colorBomb' ? 0 : color, special };
+    });
+
+    await delay(80);
+    await this.gravity();
+
+    // Check cascades
+    const newMatches=this.findMatches();
+    if(newMatches.length>0) {
+      await delay(120);
+      await this.processMatches(newMatches, -1,-1,-1,-1);
+    }
+  },
+
+  async activateSpecials(toRemove) {
+    const extra=new Set();
+    for(const k of toRemove) {
+      const [r,c]=k.split(',').map(Number);
+      const b=this.board[idx(r,c)];
+      if(!b||b.special==='none') continue;
+
+      if(b.special==='striped-h') {
+        for(let cc=0;cc<COLS;cc++) extra.add(`${r},${cc}`);
+        this.flashLine(r, 'h');
+      } else if(b.special==='striped-v') {
+        for(let rr=0;rr<ROWS;rr++) extra.add(`${rr},${c}`);
+        this.flashLine(c, 'v');
+      } else if(b.special==='wrapped') {
+        for(let dr=-2;dr<=2;dr++) for(let dc=-2;dc<=2;dc++) {
+          const nr=r+dr,nc=c+dc;
+          if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS) extra.add(`${nr},${nc}`);
+        }
+        this.flashWrapped(r,c);
+      } else if(b.special==='colorBomb') {
+        // Pick target color (random or most common)
+        const counts=Array(6).fill(0);
+        this.board.forEach((b,i)=>{ if(b&&!this.choc[i]) counts[b.color]++; });
+        const targetColor=counts.indexOf(Math.max(...counts));
+        this.board.forEach((bb,i)=>{ if(bb&&bb.color===targetColor) { const r2=Math.floor(i/COLS),c2=i%COLS; extra.add(`${r2},${c2}`); } });
+        this.flashColorBomb();
+      }
+    }
+    return extra;
+  },
+
+  flashLine(idx, dir) {
+    const grid=document.getElementById('grid');
+    const flash=document.createElement('div');
+    flash.style.cssText=`position:absolute;background:rgba(255,255,255,0.8);z-index:30;border-radius:6px;pointer-events:none;animation:flashLine 0.4s ease forwards;`;
+    const cellSize=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell'))||64;
+    if(dir==='h') { flash.style.cssText+=`left:0;top:${idx*(cellSize+3)+14}px;width:100%;height:${cellSize}px;`; }
+    else { flash.style.cssText+=`top:0;left:${idx*(cellSize+3)+14}px;height:100%;width:${cellSize}px;`; }
+    document.getElementById('grid-wrap').appendChild(flash);
+    setTimeout(()=>flash.remove(),500);
+  },
+  flashWrapped(r,c) {
+    const grid=document.getElementById('grid-wrap');
+    const flash=document.createElement('div');
+    const cellSize=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell'))||64;
+    flash.style.cssText=`position:absolute;background:radial-gradient(circle,rgba(255,255,200,0.9),transparent);z-index:30;border-radius:50%;pointer-events:none;
+      width:${cellSize*5}px;height:${cellSize*5}px;
+      left:${c*(cellSize+3)-cellSize*2+14}px;top:${r*(cellSize+3)-cellSize*2+14}px;
+      animation:flashLine 0.4s ease forwards;`;
+    grid.appendChild(flash);
+    setTimeout(()=>flash.remove(),500);
+  },
+  flashColorBomb() {
+    const flash=document.createElement('div');
+    flash.style.cssText=`position:fixed;inset:0;background:conic-gradient(#ff4444,#ffd700,#4cff4c,#00cfff,#a855f7,#ff4444);opacity:0.3;z-index:150;pointer-events:none;animation:flashLine 0.5s ease forwards;`;
+    document.body.appendChild(flash);
+    setTimeout(()=>flash.remove(),600);
+  },
+
+  async animateRemove(keys) {
+    const promises=keys.map(k => new Promise(res=>{
+      const [r,c]=k.split(',').map(Number);
+      if(this.choc[idx(r,c)]) { res(); return; }
+      const candy=this.getCandy(r,c);
+      if(!candy) { res(); return; }
+      candy.classList.add('removing');
+      this.spawnParticles(candy);
+      setTimeout(res,300);
+    }));
+    await Promise.all(promises);
+  },
+
+  spawnParticles(candyEl) {
+    const rect=candyEl.getBoundingClientRect();
+    const emojis=['✨','⭐','💫','🌟'];
+    for(let i=0;i<6;i++) {
+      const p=document.createElement('div');
+      p.className='particle';
+      p.textContent=emojis[rnd(0,emojis.length-1)];
+      p.style.left=rect.left+rect.width/2+'px';
+      p.style.top=rect.top+rect.height/2+'px';
+      const angle=rnd(0,360)*Math.PI/180;
+      const dist=rnd(40,100);
+      p.style.setProperty('--dx', Math.cos(angle)*dist+'px');
+      p.style.setProperty('--dy', Math.sin(angle)*dist+'px');
+      p.style.animationDuration=rnd(500,900)+'ms';
+      document.body.appendChild(p);
+      setTimeout(()=>p.remove(),900);
+    }
+  },
+
+  async gravity() {
+    let moved=false;
+    for(let c=0;c<COLS;c++) {
+      for(let r=ROWS-1;r>0;r--) {
+        if(this.board[idx(r,c)]===null && !this.choc[idx(r,c)]) {
+          // Find nearest non-null above
+          for(let rr=r-1;rr>=0;rr--) {
+            if(this.board[idx(rr,c)]!==null && !this.choc[idx(rr,c)]) {
+              this.board[idx(r,c)]=this.board[idx(rr,c)];
+              this.board[idx(rr,c)]=null;
+              moved=true;
+              break;
+            }
+          }
+        }
+      }
+    }
+    // Fill top empty cells
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) {
+      if(this.board[idx(r,c)]===null && !this.choc[idx(r,c)]) {
+        this.board[idx(r,c)]={ color:rnd(0,5), special:'none' };
+        moved=true;
+      }
+    }
+    if(moved) { this.renderAll(); await delay(80); }
+  },
+
+  addScore(pts, removedKeys) {
+    this.score+=pts;
+    document.getElementById('scoreVal').textContent=this.score.toLocaleString();
+    document.getElementById('scoreVal').classList.remove('pop');
+    void document.getElementById('scoreVal').offsetWidth;
+    document.getElementById('scoreVal').classList.add('pop');
+    // Floating score
+    if(removedKeys && removedKeys.size>0) {
+      const keys=[...removedKeys];
+      const [r,c]=keys[Math.floor(keys.length/2)].split(',').map(Number);
+      const cell=this.getCell(r,c);
+      if(cell) {
+        const rect=cell.getBoundingClientRect();
+        const sf=document.createElement('div');
+        sf.className='score-float';
+        sf.textContent='+'+pts.toLocaleString();
+        sf.style.left=rect.left+'px'; sf.style.top=rect.top+'px';
+        document.body.appendChild(sf);
+        setTimeout(()=>sf.remove(),900);
+      }
+    }
+    this.updateStars();
+    this.updateObjectives();
+  },
+
+  showCombo(n) {
+    const labels={2:'💥 Combo x2!',3:'🔥 TRIPLE!',4:'⚡ QUADRUPLE!',5:'🌟 FANTASTIQUE!'};
+    const label=labels[Math.min(n,5)]||(n+'x MÉGA COMBO!!!');
+    const el=document.createElement('div');
+    el.className='combo-text';
+    const colors=['#ff6bff','#ffd700','#ff4444','#4cff4c','#00cfff'];
+    el.style.color=colors[(n-2)%colors.length];
+    el.style.textShadow=`0 0 30px ${colors[(n-2)%colors.length]}`;
+    el.textContent=label;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),1000);
+  },
+
+  updateStars() {
+    const cfg=this.levelCfg;
+    ['star1','star2','star3'].forEach((id,i)=>{
+      const el=document.getElementById(id);
+      const wasLit=el.classList.contains('lit');
+      const isLit=this.score>=cfg.stars[i];
+      el.classList.toggle('lit',isLit);
+      if(isLit&&!wasLit) el.style.animation=''; // re-trigger
+    });
+  },
+
+  updateUI() {
+    const mv=document.getElementById('movesVal');
+    mv.textContent=this.moves;
+    mv.classList.toggle('low', this.moves<=5);
+  },
+
+  updateObjectives() {
+    const cfg=this.levelCfg;
+    const bar=document.getElementById('obj-bar');
+    bar.innerHTML='';
+    cfg.targets.forEach(t=>{
+      const item=document.createElement('div');
+      item.className='obj-item';
+      let icon,name,current,max;
+      if(t.type==='score') {
+        icon='🏆'; name='Score'; current=Math.min(this.score,t.val); max=t.val;
+      } else if(t.type==='jelly') {
+        icon='💎'; name='Gelée'; current=Math.min(this.jellyCleared,t.val); max=t.val;
+      }
+      const pct=Math.round(current/max*100);
+      item.innerHTML=`
+        <div class="obj-icon">${icon}</div>
+        <div class="obj-info">
+          <div class="obj-name">${name}</div>
+          <div class="obj-prog">${current.toLocaleString()} / ${max.toLocaleString()}</div>
+          <div class="obj-bar-inner"><div class="obj-fill" style="width:${pct}%"></div></div>
+        </div>`;
+      bar.appendChild(item);
+    });
+  },
+
+  checkObjectives() {
+    const cfg=this.levelCfg;
+    return cfg.targets.every(t=>{
+      if(t.type==='score') return this.score>=t.val;
+      if(t.type==='jelly') return this.jellyCleared>=t.val;
+      return false;
+    });
+  },
+
+  checkEndLevel() {
+    const won=this.checkObjectives();
+    if(won) { setTimeout(()=>this.showWin(),400); return; }
+    if(this.moves<=0) { setTimeout(()=>this.showLose(),400); }
+  },
+
+  showWin() {
+    const stars=['☆','⭐','⭐⭐','⭐⭐⭐'][this.calcStars()];
+    const panel=document.getElementById('mainPanel');
+    panel.innerHTML=`
+      <h1>🎉 Bravo !</h1>
+      <div class="stars-big">${stars}</div>
+      <div class="big-score">${this.score.toLocaleString()}</div>
+      <p style="margin:16px 0">Niveau ${this.level+1} complété avec ${this.moves} coups restants !</p>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="G.nextLevel()">➡️ Niveau suivant</button>
+      <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="G.restart()">🔄 Rejouer</button>
+    `;
+    document.getElementById('overlay').style.display='flex';
+  },
+
+  showLose() {
+    const panel=document.getElementById('mainPanel');
+    panel.innerHTML=`
+      <h1>😢 Raté !</h1>
+      <p>Plus de coups disponibles. Score: <b>${this.score.toLocaleString()}</b><br>Encore un petit effort !</p>
+      <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="G.restart()">🔄 Réessayer</button>
+      <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="G.nextLevel()">⏭️ Passer</button>
+    `;
+    document.getElementById('overlay').style.display='flex';
+  },
+
+  calcStars() {
+    const cfg=this.levelCfg;
+    const s=this.score;
+    if(s>=cfg.stars[2]) return 3;
+    if(s>=cfg.stars[1]) return 2;
+    if(s>=cfg.stars[0]) return 1;
+    return 0;
+  },
+
+  nextLevel() {
+    this.level=Math.min(this.level+1,LEVELS.length-1);
+    this.score=0;
+    document.getElementById('overlay').style.display='none';
+    this.loadLevel();
+  },
+
+  restart() {
+    this.score=0;
+    document.getElementById('overlay').style.display='none';
+    this.loadLevel();
+  },
+};
+
+// Add CSS flash animation
+const style=document.createElement('style');
+style.textContent=`@keyframes flashLine{from{opacity:0.9}to{opacity:0}}`;
+document.head.appendChild(style);
+
+G.initBg();
+</script>
+</body>
+</html>
